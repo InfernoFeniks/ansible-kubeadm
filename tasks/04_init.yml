@@ -23,7 +23,7 @@
       become: true
       become_user: root
       register: kubeadm_init_complete
-      failed_when: ("'error execution phase preflight' in kubeadm_init_complete.stderr") or (kubeadm_init_complete.rc != 0)
+      failed_when: ("error execution phase preflight" in kubeadm_init_complete.stderr) or (kubeadm_init_complete.rc != 0)
       changed_when:
         - "'kubeadm join' in kubeadm_init_complete.stdout"
     - name: Create directory for kube config.
