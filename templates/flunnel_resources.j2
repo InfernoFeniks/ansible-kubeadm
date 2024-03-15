@@ -88,7 +88,7 @@ data:
     }
   net-conf.json: |
     {
-      "Network": {{ kubeadm_kube_settings.pod_cidr }},
+      "Network": {{ kubeadm_kube_settings.pod_cidr | default('10.244.0.0/16') }},
       "Backend": {
         "Type": "vxlan"
       }
