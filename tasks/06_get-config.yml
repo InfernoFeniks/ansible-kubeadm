@@ -3,9 +3,6 @@
   community.general.ipify_facts:
   timeout: 20
 
-- debug:
-    msg: "{{ hostvars.master1.ipify_public_ip }}"
-
 - name: Store file for ./kube/config to localhost
   ansible.builtin.fetch:
     src: /etc/kubernetes/admin.conf
@@ -37,6 +34,6 @@
   ansible.builtin.lineinfile:
     path: "{{ kubeadm_local.config_path | default('~/.kube/config') }}"
     search_string: "    server: https:"
-    line: "    server: https://{{ hostvars.master1.ipify_public_ip }}:6443"
+    line: "    server: https://{{ hostvars.(groups['kube_control_plane'][0]).ipify_public_ip }}:6443"
   delegate_to: localhost
   when: "kubeadm_kube_settings.fqdn is undefined or kubeadm_kube_settings.fqdn| length<2 "

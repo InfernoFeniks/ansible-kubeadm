@@ -19,13 +19,13 @@
 - name: Install Helm on master node
   ansible.builtin.include_tasks: 21_helm.yml
   when:
-    - kubeadm_tools.helm
-    - ansible_hostname == "master1"
+    - kubeadm_tools.helm | default(false)
+    - ansible_hostname in groups['kube_control_plane']
 
 - name: Install kubectl on master node
   become: true
   when:
-    - kubeadm_tools.kubectl
+    - kubeadm_tools.kubectl | default(true)
     - ansible_hostname in groups['kube_control_plane']
     - ansible_os_family == "Debian"
   block:

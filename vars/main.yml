@@ -7,7 +7,7 @@ kubeadm_kube_settings:
 kubeadm_local:
   config_path: "~/.kube/config"
   user: "{{ lookup('env', 'USER') }}" # variable with the name of the user running ansible?
-  make_config: false # Danger! Rewrite your config file
+  make_config: true # Danger! Rewrite your config file
 
 # How CNI usage? (flunnel or calico)
 kubeadm_cni:

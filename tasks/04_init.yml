@@ -25,6 +25,7 @@
       register: kubeadm_init_complete
       failed_when:
         - "'error execution phase preflight' in kubeadm_init_complete.stderr"
+        - kubeadm_init_complete.rc != 0
       changed_when:
         - "'kubeadm join' in kubeadm_init_complete.stdout"
     - name: Create directory for kube config.
@@ -36,6 +37,9 @@
         mode: '0755'
       become: true
       become_user: root
+    - name: Pause for 3 seconds
+      ansible.builtin.pause:
+        seconds: 3
     - name: Copy /etc/kubernetes/admin.conf to user home directory
       ansible.builtin.copy:
         src: /etc/kubernetes/admin.conf
@@ -51,10 +55,10 @@
         seconds: 60
     - name: Create Pod Network Flunnel.
       ansible.builtin.include_tasks: 11_cni-flunnel.yml
-      when: kubeadm_cni.flunnel
+      when: kubeadm_cni.flunnel | default(false)
     - name: Create Pod Network Calico.
       ansible.builtin.include_tasks: 12_cni-calico.yml
-      when: kubeadm_cni.calico
+      when: kubeadm_cni.calico | default(true)
     - name: Get the token for joining the nodes with Kuberentes master.
       ansible.builtin.command:
         argv:
