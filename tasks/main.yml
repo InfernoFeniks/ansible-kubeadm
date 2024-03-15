@@ -23,6 +23,13 @@
     - ansible_hostname == "master1"
   tags: initka
 
+- name: KUBERNETES | Get config file
+  ansible.builtin.include_tasks: 06_get-config.yml
+  when:
+    - ansible_hostname == "master1"
+    - kubeadm_local.make_config  | default(true)
+  tags: get_config
+
 - name: KUBERNETES | Join worker nodes to cluster
   ansible.builtin.include_tasks: 05_join.yml
   when:

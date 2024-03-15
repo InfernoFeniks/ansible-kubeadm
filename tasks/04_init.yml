@@ -16,10 +16,10 @@
           - init
           - --apiserver-advertise-address={{ ansible_default_ipv4.address }}
           - --pod-network-cidr
-          - "{{ kubeadm_kube_settings.pod_cidr }}"
-          - --apiserver-cert-extra-sans={{ ansible_facts.ipify_public_ip }},{{ kubeadm_kube_settings.fqdn }}
+          - "{{ kubeadm_kube_settings.pod_cidr | default('10.244.0.0/16') }}"
+          - --apiserver-cert-extra-sans={{ ansible_facts.ipify_public_ip }},{{ kubeadm_kube_settings.fqdn | default('') }}
           - --control-plane-endpoint
-          - "{{ kubeadm_kube_settings.endpoint }}"
+          - "{{ kubeadm_kube_settings.endpoint | default('') }}"
       become: true
       become_user: root
       register: kubeadm_init_complete
@@ -43,7 +43,7 @@
         remote_src: true
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-        mode: '0644'
+        mode: '0600'
       become: true
       become_user: root
     - name: Pause for 60 seconds
