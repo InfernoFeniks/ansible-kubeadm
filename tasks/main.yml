@@ -1,0 +1,30 @@
+---
+- name: SYSTEM | Prepare OS
+  ansible.builtin.include_tasks: 01_prepare.yml
+  when: (ansible_hostname in groups['kube_node']) or
+        (ansible_hostname in groups['kube_control_plane'])
+  tags: prepare
+
+- name: SYSTEM | Install Kubeadm tools
+  ansible.builtin.include_tasks: 02_install.yml
+  when: (ansible_hostname in groups['kube_node']) or
+        (ansible_hostname in groups['kube_control_plane'])
+  tags: install
+
+- name: SYSTEM | Hosts configured
+  ansible.builtin.include_tasks: 03_host-config.yml
+  when: (ansible_hostname in groups['kube_node']) or
+        (ansible_hostname in groups['kube_control_plane'])
+  tags: confirure
+
+- name: KUBERNETES | Init cluster Kubernetes
+  ansible.builtin.include_tasks: 04_init.yml
+  when:
+    - ansible_hostname == "master1"
+  tags: initka
+
+- name: KUBERNETES | Join worker nodes to cluster
+  ansible.builtin.include_tasks: 05_join.yml
+  when:
+    - ansible_hostname in groups['kube_node']
+  tags: joinka

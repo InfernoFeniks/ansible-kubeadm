@@ -1,0 +1,14 @@
+---
+kubeadm_kube_settings:
+  pod_cidr: "10.244.0.0/16"
+  fqdn: ""
+  endpoint: ""
+
+# How CNI usage? (flunnel or calico)
+kubeadm_cni:
+  flunnel: true
+  calico: false
+
+kubeadm_tools:
+  helm: false
+  kubectl: true

@@ -1,0 +1,47 @@
+- name: Install distrib kubeadm
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    lock_timeout: 300
+  loop: "{{ kubeadm_kube_packages }}"
+  when: ansible_os_family == "Debian"
+
+- name: Hold update
+  become: true
+  ansible.builtin.dpkg_selections:
+    name: "{{ item }}"
+    selection: hold
+  loop: "{{ kubeadm_kube_packages }}"
+  when: ansible_os_family == "Debian"
+
+- name: Install Helm on master node
+  ansible.builtin.include_tasks: 21_helm.yml
+  when:
+    - kubeadm_tools.helm
+    - ansible_hostname == "master1"
+
+- name: Install kubectl on master node
+  become: true
+  when:
+    - kubeadm_tools.kubectl
+    - ansible_hostname in groups['kube_control_plane']
+    - ansible_os_family == "Debian"
+  block:
+    - name: Install distrib kubeadm
+      ansible.builtin.apt:
+        name: "{{ item }}"
+      loop:
+        - kubectl
+    - name: Hold update
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - kubectl
+    - name: Configure kubectl command auto-completion.
+      ansible.builtin.lineinfile:
+        dest: /home/{{ ansible_user }}/.bashrc
+        line: 'source <(kubectl completion bash)'
+        insertafter: EOF

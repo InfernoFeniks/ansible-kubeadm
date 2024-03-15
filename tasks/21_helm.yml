@@ -1,0 +1,23 @@
+- name: Unarchive HELM that is already on the remote machine
+  become: true
+  ansible.builtin.unarchive:
+    src: "{{ kubeadm_tools_conf.helm.url_dist }}"
+    dest: /tmp
+    remote_src: true
+  when: kubeadm_tools.helm
+
+- name: Move binary file HELM to /usr/local/bin/
+  become: true
+  ansible.builtin.copy:
+    remote_src: true
+    src: /tmp/linux-amd64/helm
+    dest: /usr/local/bin/helm
+    owner: root
+    group: root
+    mode: "0711"
+
+- name: Configure helm completions in your current shell session
+  ansible.builtin.lineinfile:
+    dest: /home/{{ ansible_user }}/.bashrc
+    line: 'source <(helm completion bash)'
+    insertafter: EOF

@@ -1,0 +1,63 @@
+- name: Install required packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    lock_timeout: 300
+  loop: "{{ kubeadm_requied_packages }}"
+
+- name: Download the public signing key for the Kubernetes package repositories
+  become: true
+  ansible.builtin.get_url:
+    url: "{{ kubeadm_kuber_dist.url_gpg }}"
+    dest: "{{ kubeadm_kuber_dist.dest_gpg }}"
+    mode: "0644"
+    owner: root
+    force: true
+
+- name: Add the appropriate Kubernetes apt repository
+  become: true
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by={{ kubeadm_kuber_dist.dest_gpg }}] {{ kubeadm_kuber_dist.url_dist }}"
+    state: present
+    filename: kubernetes
+    update_cache: true
+
+- name: Unarchive containerd that is already on the remote machine
+  become: true
+  ansible.builtin.unarchive:
+    src: "{{ kubeadm_cri.containerd.url_dist }}"
+    dest: /usr
+    remote_src: true
+  when: kubeadm_cri.containerd.upgrade
+
+- name: Check file is present for reconfigurate job
+  ansible.builtin.stat:
+    path: /var/containerd_update_check.txt
+  register: containerd_result
+
+- name: Reconfigurate containerd
+  when: not containerd_result.stat.exists
+  become: true
+  block:
+    - name: Config containerd config.toml
+      ansible.builtin.shell: containerd config default > /etc/containerd/config.toml
+      register: containerd_conf_default_make
+      changed_when: containerd_conf_default_make.rc != 0
+    - name: Config SystemdCgroup for containerd
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: "SystemdCgroup = false"
+        replace: "SystemdCgroup = true"
+      notify: Restart service containerd
+    - name: Make file that task configurate containerd completed
+      ansible.builtin.file:
+        path: /var/containerd_update_check.txt
+        state: touch
+        owner: root
+        group: root
+        mode: "0644"
+
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers

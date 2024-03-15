@@ -1,0 +1,97 @@
+- name: RUN INIT CLUSTER if file is present
+  become: true
+  ansible.builtin.stat:
+    path: /var/kuber_cluster_inited.txt
+  register: stat_result
+- name: INIT CLUSTER
+  when: not stat_result.stat.exists
+  block:
+    - name: Get public IP
+      community.general.ipify_facts:
+      timeout: 20
+    - name: Intilizing Kubernetes Cluster
+      ansible.builtin.command:
+        argv:
+          - kubeadm
+          - init
+          - --apiserver-advertise-address={{ ansible_default_ipv4.address }}
+          - --pod-network-cidr
+          - "{{ kubeadm_kube_settings.pod_cidr }}"
+          - --apiserver-cert-extra-sans={{ ansible_facts.ipify_public_ip }},{{ kubeadm_kube_settings.fqdn }}
+          - --control-plane-endpoint
+          - "{{ kubeadm_kube_settings.endpoint }}"
+      become: true
+      become_user: root
+      register: kubeadm_init_complete
+      failed_when:
+        - "'error execution phase preflight' in kubeadm_init_complete.stderr"
+      changed_when:
+        - "'kubeadm join' in kubeadm_init_complete.stdout"
+    - name: Create directory for kube config.
+      ansible.builtin.file:
+        path: /home/{{ ansible_user }}/.kube
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0755'
+      become: true
+      become_user: root
+    - name: Copy /etc/kubernetes/admin.conf to user home directory
+      ansible.builtin.copy:
+        src: /etc/kubernetes/admin.conf
+        dest: "/home/{{ ansible_user }}/.kube/config"
+        remote_src: true
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: '0644'
+      become: true
+      become_user: root
+    - name: Pause for 60 seconds
+      ansible.builtin.pause:
+        seconds: 60
+    - name: Create Pod Network Flunnel.
+      ansible.builtin.include_tasks: 11_cni-flunnel.yml
+      when: kubeadm_cni.flunnel
+    - name: Create Pod Network Calico.
+      ansible.builtin.include_tasks: 12_cni-calico.yml
+      when: kubeadm_cni.calico
+    - name: Get the token for joining the nodes with Kuberentes master.
+      ansible.builtin.command:
+        argv:
+          - kubeadm
+          - token
+          - create
+          - --print-join-command
+      register: kubernetes_join_command
+      changed_when: kubernetes_join_command.rc != 0
+    - name: Show join info
+      ansible.builtin.debug:
+        msg: "{{ kubernetes_join_command.stdout }}"
+    - name: Remove old file with join command
+      ansible.builtin.file:
+        path: /tmp/kubernetes_join_command
+        state: absent
+      become: true
+      delegate_to: localhost
+    - name: Copy join command to local file.
+      ansible.builtin.copy:
+        content: "{{ kubernetes_join_command.stdout_lines[0] }}"
+        dest: /tmp/kubernetes_join_command
+        mode: "0777"
+      become: true
+      delegate_to: localhost
+    - name: Make file that task already completed
+      ansible.builtin.file:
+        path: /var/kuber_cluster_inited.txt
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+      become: true
+    - name: Store file for ./kube/config to localhost
+      ansible.builtin.fetch:
+        src: /etc/kubernetes/admin.conf
+        dest: /tmp/config
+        flat: true
+      become: true
+      become_user: root

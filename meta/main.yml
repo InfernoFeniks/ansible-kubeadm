@@ -1,0 +1,23 @@
+galaxy_info:
+  role_name: kubeadm
+  namespace: infernofeniks
+  author: Maxim Kuzin
+  company: InfernoFeniks
+  description: Role for installation and managing Kubernetes cluster
+
+  license: MIT
+
+  min_ansible_version: "2.16"
+
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+
+  galaxy_tags:
+    - kubeadm
+    - kubernetes
+    - k8s
+    - development
+
+dependencies: []

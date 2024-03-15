@@ -1,0 +1,40 @@
+---
+# defaults file for ansible-kubeadm
+
+kubeadm_requied_packages:
+  - apt-transport-https
+  - iptables
+  - bash-completion
+  - ca-certificates
+  - curl
+  - gpg
+  - bash-completion
+  - containerd
+
+kubeadm_kube_packages:
+  - kubelet
+  - kubeadm
+  - kubectl
+
+kubeadm_kuber_dist:
+  version: "1.29"
+  url_gpg: "https://pkgs.k8s.io/core:/stable:/v1.29/deb/Release.key"
+  dest_gpg: "/etc/apt/trusted.gpg.d/kubernetes.asc"
+  url_dist: "https://pkgs.k8s.io/core:/stable:/v1.29/deb/ /"
+
+kubeadm_cri:
+  containerd:
+    usage: true
+    upgrade: true
+    url_dist: 'https://github.com/containerd/containerd/releases/download/v1.7.14/containerd-1.7.14-linux-amd64.tar.gz'
+
+kubeadm_tools_conf:
+  helm:
+    url_dist: 'https://get.helm.sh/helm-v3.14.2-linux-amd64.tar.gz'
+
+kubeadm_cni_conf:
+  flunnel:
+    url_dist: https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
+  calico:
+    url_dist_tigra: https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/tigera-operator.yaml
+    url_dist_calico: https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/custom-resources.yaml
