@@ -14,7 +14,6 @@ kubeadm_requied_packages:
 kubeadm_kube_packages:
   - kubelet
   - kubeadm
-  - kubectl
 
 kubeadm_kuber_dist:
   version: "1.29"
