@@ -1,0 +1,69 @@
+- name: Get certificate-key from master
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - init
+      - phase
+      - upload-certs
+      - --upload-certs
+  become: true
+  become_user: root
+  register: kubeadm_init_certkey
+  changed_when:
+    - "'Using certificate key' in kubeadm_init_certkey.stdout"
+  when: ansible_hostname in groups['kube_control_plane'][0]
+
+- name: Get the token for joining the nodes with Kuberentes master.
+  ansible.builtin.command:
+    argv:
+      - kubeadm
+      - token
+      - create
+      - --print-join-command
+  register: kubernetes_join_masters
+  changed_when: kubernetes_join_masters.rc != 0
+  when: ansible_hostname in groups['kube_control_plane'][0]
+
+- name: Copy join command for masters to local file.
+  ansible.builtin.copy:
+    content: "{{ kubernetes_join_masters.stdout_lines[0] }}--control-plane --certificate-key {{ kubeadm_init_certkey.stdout_lines[-1] }}"
+    dest: /tmp/kubernetes_join_masters_command
+    mode: "0777"
+  become: true
+  delegate_to: localhost
+  when: ansible_hostname in groups['kube_control_plane'][0]
+
+- name: Copy join command to new master nodes.
+  ansible.builtin.copy:
+    src: /tmp/kubernetes_join_masters_command
+    dest: /tmp/kubernetes_join_masters_command
+    mode: "0777"
+  when: ansible_hostname != groups['kube_control_plane'][0]
+
+- name: RUN JOIN MASTERS to CLUSTER if file is present
+  ansible.builtin.stat:
+    path: /etc/kubernetes/pki/ca.crt
+  register: join_master_status
+  when: ansible_hostname != groups['kube_control_plane'][0]
+
+- name: Join new master to cluster
+  become: true
+  become_user: root
+  when:
+    - ansible_hostname != groups['kube_control_plane'][0]
+    - not join_master_status.stat.exists
+  block:
+    - name: Join the Master nodes with the master.
+      ansible.builtin.command: sh /tmp/kubernetes_join_masters_command
+      register: joined_or_not
+      changed_when:
+        - "'This node has joined the cluster' in joined_or_not.stdout"
+      failed_when:
+        - joined_or_not.rc != 0
+    - name: Get info about joined nodes
+      ansible.builtin.debug:
+        msg: "{{ ansible_hostname }} - This master node has joined the cluster"
+      when:
+        - joined_or_not.rc == 0
+      changed_when:
+        - "'This node has joined the cluster' in joined_or_not.stdout"
