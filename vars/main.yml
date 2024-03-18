@@ -11,7 +11,7 @@ kubeadm_local:
 
 # How CNI usage? (flunnel or calico)
 kubeadm_cni:
-  flunnel: true
+  flunnel: false
   calico: false
 
 kubeadm_tools:

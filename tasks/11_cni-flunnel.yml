@@ -14,3 +14,11 @@
         - kubectl apply -f /opt/flunnel_resources.yaml
       register: cni_flunnel_complete
       changed_when: cni_flunnel_complete.rc == 0
+    - name: Make file that task already completed
+      ansible.builtin.file:
+        path: /var/kuber_cni_flunnel_inited.txt
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+      become: true

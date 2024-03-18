@@ -8,7 +8,6 @@ kubeadm_requied_packages:
   - ca-certificates
   - curl
   - gpg
-  - bash-completion
   - containerd
 
 kubeadm_kube_packages:

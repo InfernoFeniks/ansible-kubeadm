@@ -45,15 +45,9 @@
         mode: '0600'
       become: true
       become_user: root
-    - name: Pause for 60 seconds
+    - name: Pause for 20 seconds
       ansible.builtin.pause:
-        seconds: 60
-    - name: Create Pod Network Flunnel.
-      ansible.builtin.include_tasks: 11_cni-flunnel.yml
-      when: kubeadm_cni.flunnel | default(false)
-    - name: Create Pod Network Calico.
-      ansible.builtin.include_tasks: 12_cni-calico.yml
-      when: kubeadm_cni.calico | default(true)
+        seconds: 20
     - name: Get the token for joining the nodes with Kuberentes master.
       ansible.builtin.command:
         argv:
@@ -72,7 +66,7 @@
         state: absent
       become: true
       delegate_to: localhost
-    - name: Copy join command to local file.
+    - name: Copy join command for workers to local file.
       ansible.builtin.copy:
         content: "{{ kubernetes_join_command.stdout_lines[0] }}"
         dest: /tmp/kubernetes_join_command
@@ -87,10 +81,3 @@
         group: root
         mode: '0644'
       become: true
-    - name: Store file for ./kube/config to localhost
-      ansible.builtin.fetch:
-        src: /etc/kubernetes/admin.conf
-        dest: /tmp/config
-        flat: true
-      become: true
-      become_user: root
