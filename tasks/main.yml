@@ -1,10 +1,4 @@
 ---
-- name: KUBERNETES | Install Network plugins
-  ansible.builtin.include_tasks: 10_cni.yml
-  when: ansible_hostname in groups['kube_control_plane'][0]
-  tags: cni_install
-
-
 - name: SYSTEM | Prepare OS
   ansible.builtin.include_tasks: 01_prepare.yml
   when: (ansible_hostname in groups['kube_node']) or
