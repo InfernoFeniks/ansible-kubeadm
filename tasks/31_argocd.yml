@@ -1,0 +1,76 @@
+- name: ARGOCD | Check argocd installation
+  become: true
+  ansible.builtin.stat:
+    path: /var/kuber_argocd_inited.txt
+  register: stat_argocd
+
+- name: ARGOCD | Install Argocd
+  when:
+    - not stat_argocd.stat.exists
+    - kubeadm_argocd | default(false)
+  block:
+    - name: ARGOCD | Generate ingress rule for argocd
+      become: true
+      ansible.builtin.template:
+        src: argocd-ingress.j2
+        dest: /opt/argocd-ingress.yaml
+        mode: "0644"
+    - name: ARGOCD | Install Argocd
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl create namespace argocd
+        - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+      register: argo_complete
+      changed_when:
+        - "'created' in argo_complete.stdout"
+    - name: ARGOCD | Creating ingress rules for argocd
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/argocd-ingress.yaml
+      register: argocd_ingress_rule_complete
+      changed_when:
+        - "'created' in argocd_ingress_rule_complete.stdout"
+    - name: Get password to argocd web ui
+      ansible.builtin.command:
+        argv:
+          - kubectl
+          - get
+          - secret
+          - --namespace=argocd
+          - argocd-initial-admin-secret
+          - --output=jsonpath='{.data.password}'
+      register: argocd_pass
+      failed_when:
+        - argocd_pass.stdout | length<2
+      changed_when:
+        - argocd_pass.stdout | length>2
+        - argocd_pass.rc == 0
+      retries: 15
+      delay: 10
+      until: argocd_pass.rc == 0
+    - name: Remove old file with argocd pass
+      ansible.builtin.file:
+        path: /tmp/kubernetes_argocd_pass
+        state: absent
+      become: true
+      delegate_to: localhost
+    - name: Copy argocd pass to local file.
+      ansible.builtin.copy:
+        content: "{{ argocd_pass.stdout_lines[0] | b64decode }}"
+        dest: /tmp/kubernetes_argocd_pass
+        mode: "0777"
+      become: true
+      delegate_to: localhost
+    - name: Make file that task already completed
+      ansible.builtin.file:
+        path: /var/kuber_argocd_inited.txt
+        state: touch
+        owner: root
+        group: root
+        mode: "0644"
+      become: true
+
+# kubectl create namespace argocd
+# kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# kubectl apply -f /opt/argocd-ingress.yaml
+# kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d

@@ -1,0 +1,22 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name     : root
+  namespace: argocd
+  finalizers:
+  - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    name: {{ kubeadm_argocd_root.destination.name | default('in-cluster') }}
+    namespace: {{ kubeadm_argocd_root.destination.namespace | default('myapp') }}
+  source:
+    repoURL: {{ kubeadm_argocd_root.source.repoURL | default('https://github.com/InfernoFeniks/argocd-demo.git') }}
+    path: {{ kubeadm_argocd_root.source.path | default('demo-dev/applications') }}
+    targetRevision: {{ kubeadm_argocd_root.source.targetRevision | default('HEAD') }}
+  project: {{ kubeadm_argocd_root.project | default('default') }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+    - CreateNamespase=true

@@ -1,3 +1,6 @@
+# на мастере
+# kubeadm token create --print-join-command
+#
 - name: Copy join command to worker nodes.
   ansible.builtin.copy:
     src: /tmp/kubernetes_join_command

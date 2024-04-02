@@ -26,14 +26,25 @@
   ansible.builtin.lineinfile:
     path: "{{ kubeadm_local.config_path | default('~/.kube/config') }}"
     search_string: "    server: https:"
-    line: "    server: https://{{ kubeadm_kube_settings.fqdn }}:6443"
+    line: "    server: https://{{ kubeadm_kube_settings.fqdn }}:{{ kubeadm_kube_settings.port }}"
   delegate_to: localhost
-  when: "kubeadm_kube_settings.fqdn is defined and kubeadm_kube_settings.fqdn|length>0"
+  when: (kubeadm_kube_settings.fqdn is defined and kubeadm_kube_settings.fqdn|length>0) and
+        (kubeadm_kube_settings.endpoint is undefined or kubeadm_kube_settings.endpoint | length<2)
 
 - name: Change endpoint server to external IP
   ansible.builtin.lineinfile:
     path: "{{ kubeadm_local.config_path | default('~/.kube/config') }}"
     search_string: "    server: https:"
-    line: "    server: https://{{ hostvars.(groups['kube_control_plane'][0]).ipify_public_ip }}:6443"
+    line: "    server: https://{{ hostvars.(groups['kube_control_plane'][0]).ipify_public_ip }}:{{ kubeadm_kube_settings.port }}"
   delegate_to: localhost
-  when: "kubeadm_kube_settings.fqdn is undefined or kubeadm_kube_settings.fqdn| length<2 "
+  when: (kubeadm_kube_settings.fqdn is undefined or kubeadm_kube_settings.fqdn | length<2) and
+        (kubeadm_kube_settings.endpoint is undefined or kubeadm_kube_settings.endpoint | length<2)
+
+- name: Change endpoint server to control-plane-endpoint
+  ansible.builtin.lineinfile:
+    path: "{{ kubeadm_local.config_path | default('~/.kube/config') }}"
+    search_string: "    server: https:"
+    line: "    server: https://{{ kubeadm_kube_settings.endpoint }}:{{ kubeadm_kube_settings.port }}"
+  delegate_to: localhost
+  when:
+    - kubeadm_kube_settings.endpoint is undefined or kubeadm_kube_settings.endpoint | length<2

@@ -11,6 +11,12 @@
         (ansible_hostname in groups['kube_control_plane'])
   tags: install
 
+# - name: KUBERNETES | Enable HA for cluster
+#   ansible.builtin.include_tasks: 08_ha-baremetal.yml
+#   when:
+#     - ansible_hostname in groups['kube_control_plane']
+#   tags: ha_enable
+
 - name: SYSTEM | Hosts configured
   ansible.builtin.include_tasks: 03_host-config.yml
   when: (ansible_hostname in groups['kube_node']) or
@@ -45,3 +51,20 @@
   when:
     - ansible_hostname in groups['kube_node']
   tags: joinka
+
+- name: KUBERNETES | Install Ingress-nginx controller
+  ansible.builtin.include_tasks: 21_ingress_nginx.yml
+  when: ansible_hostname in groups['kube_control_plane'][0]
+  tags: ingress_install
+
+- name: KUBERNETES | Install Argo CD
+  ansible.builtin.include_tasks: 31_argocd.yml
+  when: ansible_hostname in groups['kube_control_plane'][0]
+  tags: argocd_install
+
+- name: KUBERNETES | Argo CD create root application
+  ansible.builtin.include_tasks: 32_argocd_root-app.yml
+  when:
+    - kubeadm_argocd_root.enable
+    - ansible_hostname in groups['kube_control_plane'][0]
+  tags: argocd_root

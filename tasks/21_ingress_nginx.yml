@@ -1,0 +1,52 @@
+# https://kubernetes.github.io/ingress-nginx/deploy/
+
+# СНАЧАЛА!!!
+# kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.10/config/manifests/metallb-native.yaml
+
+- name: INGRESS | Check Ingress-nginx
+  become: true
+  ansible.builtin.stat:
+    path: /var/kuber_ingress-nginx_inited.txt
+  register: stat_ingress_nginx
+
+- name: INGRESS | Install Ingress-nginx
+  when:
+    - not stat_ingress_nginx.stat.exists
+    - kubeadm_ingress | default(false)
+  block:
+    - name: INGRESS | Generate ingress-nginx-controller custom service
+      become: true
+      ansible.builtin.template:
+        src: ingress-nginx-controller.j2
+        dest: /opt/ingress-nginx-controller.yaml
+        mode: "0644"
+    - name: INGRESS | Install Ingress-nginx
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f {{ kubeadm_ingress_manifest }}
+      register: ingress_nginx_complete
+      changed_when:
+        - "'created' in ingress_nginx_complete.stdout"
+    - name: INGRESS | Creating the necessary custom service ingress-nginx-controller
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl patch service -n ingress-nginx ingress-nginx-controller --patch-file /opt/ingress-nginx-controller.yaml
+      register: ingress_nginx_patch_complete
+      changed_when:
+        - "'patched' in ingress_nginx_patch_complete.stdout"
+    - name: INGRESS | Fix error with webhooks in yandex cloud compute
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl delete -A validatingwebhookconfigurations.admissionregistration.k8s.io ingress-nginx-admission
+      register: ingress_nginx_fix_webhook
+      changed_when:
+        - "'deleted' in ingress_nginx_fix_webhook.stdout"
+
+    - name: Make file that task already completed
+      ansible.builtin.file:
+        path: /var/kuber_ingress-nginx_inited.txt
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+      become: true

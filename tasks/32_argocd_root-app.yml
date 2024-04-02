@@ -1,0 +1,13 @@
+- name: ARGOCD | Generate root application manifest
+  become: true
+  ansible.builtin.template:
+    src: argocd-rootapp.j2
+    dest: /opt/argocd-rootapp.yaml
+    mode: "0644"
+- name: ARGOCD | Create Argocd root application
+  ansible.builtin.command: "{{ item }}"
+  with_items:
+    - kubectl apply -f /opt/argocd-rootapp.yaml
+  register: argo_root_complete
+  changed_when:
+    - "'created' in argo_root_complete.stdout"

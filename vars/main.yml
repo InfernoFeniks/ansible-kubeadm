@@ -3,6 +3,7 @@ kubeadm_kube_settings:
   pod_cidr: "10.244.0.0/16"
   fqdn: ""
   endpoint: ""
+  port: "6443"
 
 kubeadm_local:
   config_path: "~/.kube/config"
@@ -17,3 +18,21 @@ kubeadm_cni:
 kubeadm_tools:
   helm: false
   kubectl: true
+
+kubeadm_ingress: true
+kubeadm_ingress_manifest: "https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/baremetal/deploy.yaml"
+kubeadm_ingress_nodeport_http: "31080"
+kubeadm_ingress_nodeport_https: "31443"
+
+kubeadm_argocd: true
+kubeadm_agrocd_fqdn: argocd.infernofeniks.tech
+kubeadm_argocd_root:
+  enable: true
+  project: default
+  destination:
+    name: in-cluster
+    namespace: mynm
+  source:
+    repoURL: "https://github.com/InfernoFeniks/argocd-demo.git"
+    path: "demo-dev/applications"
+    targetRevision: main

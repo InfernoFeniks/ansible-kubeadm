@@ -1,0 +1,18 @@
+- name: Install haproxy
+  become: true
+  ansible.builtin.apt:
+    name: "{{ item }}"
+    state: present
+    update_cache: true
+    lock_timeout: 300
+  loop:
+    - haproxy
+  when: ansible_os_family == "Debian"
+
+- name: HAPROXY | Generate config for Haproxy
+  become: true
+  ansible.builtin.template:
+    src: haproxy.j2
+    dest: /etc/haproxy/haproxy.cfg
+    mode: "0644"
+  notify: Restart service haproxy

@@ -5,3 +5,10 @@
   ansible.builtin.service:
     state: restarted
     name: containerd
+
+- name: Restart service haproxy
+  become: true
+  ansible.builtin.service:
+    state: restarted
+    enabled: true
+    name: haproxy
