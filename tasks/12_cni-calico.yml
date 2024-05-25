@@ -1,26 +1,78 @@
 # https://docs.tigera.io/calico/latest/getting-started/kubernetes/quickstart
 
-- name: CALICO | Install the Tigera Calico operator and custom resource definitions.
-  ansible.builtin.command: "{{ item }}"
-  with_items:
-    - kubectl create -f {{ kubeadm_cni_conf.calico.url_dist_tigra }}
-  register: cni_calico_tigera_complete
-  changed_when: cni_calico_tigera_complete.rc == 0
-
 - name: CALICO | Install Calico
+  when:
+    - not kubeadm_cni.flannel
+    - kubeadm_cni.calico
   block:
+    - name: CALICO | Install the Tigera Calico operator and custom resource definitions.
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl create -f {{ kubeadm_cni_conf.calico.url_dist_tigra }}
+      register: cni_calico_tigera_complete
+      changed_when: cni_calico_tigera_complete.rc == 0
+
     - name: CALICO | Generate Calico custom resource
       become: true
       ansible.builtin.template:
         src: calico_resources.j2
         dest: /opt/calico_resources.yaml
         mode: "0644"
+
     - name: CALICO | Install Calico by creating the necessary custom resource
       ansible.builtin.command: "{{ item }}"
       with_items:
         - kubectl create -f /opt/calico_resources.yaml
       register: cni_calico_complete
-      changed_when: cni_calico_complete.rc == 0
+      changed_when: "'created' in cni_calico_complete.stdout"
+
+    - name: CALICO | Wait Calico by creating the necessary custom resource
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl wait --for condition=ready --all pod --namespace=calico-system --timeout=300s
+      register: cni_calico_wait
+      changed_when:
+        - "'condition met' in cni_calico_wait.stdout"
+
+    - name: Make file that task already completed
+      ansible.builtin.file:
+        path: /var/kuber_cni_calico_inited.txt
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+      become: true
+
+- name: CALICO | Install Calico for policy and flannel (aka Canal) for networking
+  when:
+    - kubeadm_cni.canal_calico
+    - not kubeadm_cni.flannel
+    - not kubeadm_cni.calico
+  block:
+    - name: CALICO | Generate Calico for policy and flannel manifest
+      become: true
+      ansible.builtin.template:
+        src: calico_with_flannel.j2
+        dest: /opt/calico_with_flannel.yaml
+        mode: "0644"
+
+    - name: CALICO | Install Calico
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/calico_with_flannel.yaml
+      register: cni_calico_canal_complete
+      changed_when: "'created' in cni_calico_canal_complete.stdout"
+
+    # - name: CALICO | Wait Calico by creating the necessary custom resource
+    #   ansible.builtin.command: "{{ item }}"
+    #   with_items:
+    #     - kubectl wait --for condition=ready --all pod --namespace=kube-system --timeout=300s
+    #   register: cni_calico_wait
+    #   changed_when:
+    #     - "'condition met' in cni_calico_wait.stdout"
+    #   async: 300
+    #   poll: 10
+
     - name: Make file that task already completed
       ansible.builtin.file:
         path: /var/kuber_cni_calico_inited.txt

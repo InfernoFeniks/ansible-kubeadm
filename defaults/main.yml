@@ -34,5 +34,5 @@ kubeadm_cni_conf:
   flunnel:
     url_dist: https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml
   calico:
-    url_dist_tigra: https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/tigera-operator.yaml
-    url_dist_calico: https://raw.githubusercontent.com/projectcalico/calico/v3.27.2/manifests/custom-resources.yaml
+    url_dist_tigra: https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/tigera-operator.yaml
+    url_dist_calico: https://raw.githubusercontent.com/projectcalico/calico/v3.28.0/manifests/custom-resources.yaml

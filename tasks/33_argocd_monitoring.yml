@@ -1,0 +1,20 @@
+- name: ARGOCD | Generate monitoring project manifest
+  become: true
+  ansible.builtin.template:
+    src: argocd-monitoring-proj.j2
+    dest: /opt/argocd-monitoring-proj.yaml
+    mode: "0644"
+- name: ARGOCD | Generate monitoring application manifest
+  become: true
+  ansible.builtin.template:
+    src: argocd-monitoring-app.j2
+    dest: /opt/argocd-monitoring-app.yaml
+    mode: "0644"
+- name: ARGOCD | Create Argocd monitoring application
+  ansible.builtin.command: "{{ item }}"
+  with_items:
+    - kubectl apply -f /opt/argocd-monitoring-proj.yaml
+    - kubectl apply -f /opt/argocd-monitoring-app.yaml
+  register: argo_monitoring_complete
+  changed_when:
+    - "'created' in argo_monitoring_complete.stdout"

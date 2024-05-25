@@ -1,0 +1,164 @@
+# https://prometheus-operator.dev/docs/prologue/quick-start/
+# https://github.com/prometheus-operator/kube-prometheus/tree/main
+
+- name: MONITORING | Check Monitoring cluster
+  become: true
+  ansible.builtin.stat:
+    path: /var/kuber_monitoring_inited.txt
+  register: stat_monitoring
+
+- name: MONITORING | Install kube-prometheus
+  when:
+    - not stat_monitoring.stat.exists
+    - kubeadm_monitoring | default(false)
+  block:
+    - name: MONITORING | Install required packages - git
+      become: true
+      ansible.builtin.apt:
+        name: git
+        state: present
+        update_cache: true
+        lock_timeout: 300
+    - name: MONITORING | Git repositories kube-prometheus
+      become: true
+      ansible.builtin.git:
+        repo: 'https://github.com/prometheus-operator/kube-prometheus.git'
+        dest: /opt/kube-prometheus
+        version: b0868e1
+    - name: MONITORING | Create the namespace and CRDs
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply --server-side -f /opt/kube-prometheus/manifests/setup/
+      register: monitoring_crd_complete
+      changed_when:
+        - "'created' in monitoring_crd_complete.stdout"
+    - name: MONITORING | Wait all CRDs
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl wait --for condition=Established --all CustomResourceDefinition --namespace=monitoring --timeout=60s
+      register: wait_crd
+      changed_when:
+        - "'condition met' in wait_crd.stdout"
+      failed_when: wait_crd.rc != 0
+    - name: Pause for 10 seconds
+      ansible.builtin.pause:
+        seconds: 10
+    - name: MONITORING | Install kube-prometheus
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply --server-side -f /opt/kube-prometheus/manifests/
+      register: monitoring_complete
+      changed_when:
+        - "'created' in monitoring_complete.stdout"
+
+- name: MONITORING | Grafana web credentials
+  when:
+    - not stat_monitoring.stat.exists
+    - kubeadm_monitoring | default(false)
+  block:
+    - name: MONITORING | Generate secret manifest
+      become: true
+      ansible.builtin.template:
+        src: monitoring-grafana-credentials-secret.j2
+        dest: /opt/monitoring-grafana-credentials-secret.yaml
+        mode: "0644"
+    - name: MONITORING | Install ingress to alermanager
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/monitoring-grafana-credentials-secret.yaml
+      register: grafana_credentials_secret
+      changed_when:
+        - ('created' in grafana_credentials_secret.stdout) or ('configured' in grafana_credentials_secret.stdout)
+      failed_when: grafana_credentials_secret.rc != 0
+
+    - name: MONITORING | Generate patch manifest
+      become: true
+      ansible.builtin.template:
+        src: monitoring-grafana-credentials-patch.j2
+        dest: /opt/monitoring-grafana-credentials-patch.yaml
+        mode: "0644"
+    - name: MONITORING | Install ingress to alermanager
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl patch deployment -n monitoring grafana --patch-file /opt/monitoring-grafana-credentials-patch.yaml
+      register: grafana_credentials_patch
+      changed_when:
+        - ('created' in grafana_credentials_patch.stdout) or ('configured' in grafana_credentials_patch.stdout)
+      failed_when: grafana_credentials_patch.rc != 0
+
+- name: MONITORING | Ingress to alertmanager
+  when:
+    - not stat_monitoring.stat.exists
+    - kubeadm_monitoring | default(false)
+    - kubeadm_alertmanager_fqdn != "none"
+  block:
+    - name: MONITORING | Generate ingress to alertmanager
+      become: true
+      ansible.builtin.template:
+        src: monitoring-alertmanager-ingress.j2
+        dest: /opt/monitoring-alertmanager-ingress.yaml
+        mode: "0644"
+    - name: MONITORING | Install ingress to alermanager
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/monitoring-alertmanager-ingress.yaml
+      register: ingress_alertmanager_complete
+      changed_when:
+        - ('created' in ingress_alertmanager_complete.stdout) or ('configured' in ingress_alertmanager_complete.stdout)
+      failed_when: ingress_alertmanager_complete.rc != 0
+
+- name: MONITORING | Ingress to grafana
+  when:
+    - not stat_monitoring.stat.exists
+    - kubeadm_monitoring | default(false)
+    - kubeadm_grafana_fqdn != "none"
+  block:
+    - name: MONITORING | Generate ingress to grafana
+      become: true
+      ansible.builtin.template:
+        src: monitoring-grafana-ingress.j2
+        dest: /opt/monitoring-grafana-ingress.yaml
+        mode: "0644"
+    - name: MONITORING | Install ingress to grafana
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/monitoring-grafana-ingress.yaml
+      register: ingress_grafana_complete
+      changed_when:
+        - ('created' in ingress_grafana_complete.stdout) or ('configured' in ingress_grafana_complete.stdout)
+      failed_when: ingress_grafana_complete.rc != 0
+
+- name: MONITORING | Ingress to prometheus
+  when:
+    - not stat_monitoring.stat.exists
+    - kubeadm_monitoring | default(false)
+    - kubeadm_prometheus_fqdn != "none"
+  block:
+    - name: MONITORING | Generate ingress to prometheus
+      become: true
+      ansible.builtin.template:
+        src: monitoring-prometheus-ingress.j2
+        dest: /opt/monitoring-prometheus-ingress.yaml
+        mode: "0644"
+    - name: MONITORING | Install ingress to prometheus
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/monitoring-prometheus-ingress.yaml
+      register: ingress_prometheus_complete
+      changed_when:
+        - ('created' in ingress_prometheus_complete.stdout) or ('configured' in ingress_prometheus_complete.stdout)
+      failed_when: ingress_prometheus_complete.rc != 0
+
+- name: MONITORING | Install kube-prometheus
+  when:
+    - not stat_monitoring.stat.exists
+    - kubeadm_monitoring | default(false)
+  block:
+    - name: MONITORING | Make file that task already completed
+      ansible.builtin.file:
+        path: /var/kuber_monitoring_inited.txt
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+      become: true

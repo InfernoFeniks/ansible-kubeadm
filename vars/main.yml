@@ -1,38 +1,66 @@
 ---
+# Cluster configuration
 kubeadm_kube_settings:
   pod_cidr: "10.244.0.0/16"
   fqdn: ""
   endpoint: ""
   port: "6443"
 
+# Setting up a local configuration file
 kubeadm_local:
   config_path: "~/.kube/config"
   user: "{{ lookup('env', 'USER') }}" # variable with the name of the user running ansible?
   make_config: true # Danger! Rewrite your config file
 
-# How CNI usage? (flunnel or calico)
+# How CNI usage? (flannel or calico)
 kubeadm_cni:
-  flunnel: false
+  flannel: false
   calico: false
+  canal_calico: false
 
+# Tools installed on the host
 kubeadm_tools:
-  helm: false
+  helm: true
   kubectl: true
 
+# Ingress controller config
 kubeadm_ingress: true
-kubeadm_ingress_manifest: "https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/baremetal/deploy.yaml"
+kubeadm_ingress_version: "v1.10.1"
+# Controller settings for working with an external load balancer
 kubeadm_ingress_nodeport_http: "31080"
 kubeadm_ingress_nodeport_https: "31443"
 
-kubeadm_argocd: true
-kubeadm_agrocd_fqdn: argocd.infernofeniks.tech
+kubeadm_monitoring: false
+# external fqdn address for ingress
+kubeadm_alertmanager_fqdn: none
+kubeadm_prometheus_fqdn: none
+kubeadm_grafana_fqdn: none
+# Default auth for grafana web gui. It is strongly required to be replaced in the future
+kubeadm_grafana_user: admin
+kubeadm_grafana_password: admin
+
+# ARGOCD config
+kubeadm_argocd: false
+kubeadm_argocd_vesion: v2.8.13
+# external fqdn address for ingress
+kubeadm_agrocd_fqdn: none
+# Enable demo app in argocd
+kubeadm_agrocd_demo: false
+
+# Config for root app in ARGOCD
 kubeadm_argocd_root:
-  enable: true
+  enable: false
   project: default
   destination:
     name: in-cluster
-    namespace: mynm
+    namespace: app
   source:
-    repoURL: "https://github.com/InfernoFeniks/argocd-demo.git"
-    path: "demo-dev/applications"
-    targetRevision: main
+    repoURL: "http://gitlab.infernofeniks.ru/feniks/argocd-projects.git"
+    path: "diplom"
+    targetRevision: HEAD
+
+# Enable cluster monitoring using argocd
+kubeadm_argocd_monitoring: false
+
+# Enable HA on cluster
+ha_enable: false

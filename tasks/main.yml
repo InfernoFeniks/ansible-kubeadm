@@ -11,11 +11,12 @@
         (ansible_hostname in groups['kube_control_plane'])
   tags: install
 
-# - name: KUBERNETES | Enable HA for cluster
-#   ansible.builtin.include_tasks: 08_ha-baremetal.yml
-#   when:
-#     - ansible_hostname in groups['kube_control_plane']
-#   tags: ha_enable
+- name: KUBERNETES | Enable HA for cluster
+  ansible.builtin.include_tasks: 08_ha-baremetal.yml
+  when:
+    - ansible_hostname in groups['kube_control_plane']
+    - ha_enable
+  tags: ha_enable
 
 - name: SYSTEM | Hosts configured
   ansible.builtin.include_tasks: 03_host-config.yml
@@ -53,9 +54,16 @@
   tags: joinka
 
 - name: KUBERNETES | Install Ingress-nginx controller
-  ansible.builtin.include_tasks: 21_ingress_nginx.yml
+  ansible.builtin.include_tasks: 22_ingress_nginx.yml
   when: ansible_hostname in groups['kube_control_plane'][0]
   tags: ingress_install
+
+- name: PROMETHEUS | Install monitoring
+  ansible.builtin.include_tasks: 23_monitoring.yml
+  when:
+    - kubeadm_monitoring
+    - ansible_hostname in groups['kube_control_plane'][0]
+  tags: monitoring_install
 
 - name: KUBERNETES | Install Argo CD
   ansible.builtin.include_tasks: 31_argocd.yml
@@ -68,3 +76,10 @@
     - kubeadm_argocd_root.enable
     - ansible_hostname in groups['kube_control_plane'][0]
   tags: argocd_root
+
+- name: KUBERNETES | Argo CD create cluster monitoring
+  ansible.builtin.include_tasks: 33_argocd_monitoring.yml
+  when:
+    - kubeadm_argocd_monitoring
+    - ansible_hostname in groups['kube_control_plane'][0]
+  tags: argocd_monitoring

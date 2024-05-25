@@ -4,6 +4,7 @@
     name: br_netfilter
     state: present
     persistent: present
+
 - name: Enable sysctl functions for kubernetes
   become: true
   ansible.posix.sysctl:

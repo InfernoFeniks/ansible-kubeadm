@@ -4,7 +4,6 @@
     src: "{{ kubeadm_tools_conf.helm.url_dist }}"
     dest: /tmp
     remote_src: true
-  when: kubeadm_tools.helm
 
 - name: Move binary file HELM to /usr/local/bin/
   become: true

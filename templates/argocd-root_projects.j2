@@ -1,17 +1,17 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name     : root
+  name     : root-diplom
   namespace: argocd
   finalizers:
   - resources-finalizer.argocd.argoproj.io
 spec:
   destination:
     name: {{ kubeadm_argocd_root.destination.name | default('in-cluster') }}
-    namespace: {{ kubeadm_argocd_root.destination.namespace | default('myapp') }}
+    namespace: {{ kubeadm_argocd_root.destination.namespace | default('diplom') }}
   source:
-    repoURL: {{ kubeadm_argocd_root.source.repoURL | default('https://github.com/InfernoFeniks/argocd-demo.git') }}
-    path: {{ kubeadm_argocd_root.source.path | default('demo-dev/applications') }}
+    repoURL: {{ kubeadm_argocd_root.source.repoURL | default('https://gitlab.infernofeniks.ru/feniks/argocd-projects.git') }}
+    path: {{ kubeadm_argocd_root.source.path | default('diplom') }}
     targetRevision: {{ kubeadm_argocd_root.source.targetRevision | default('HEAD') }}
   project: {{ kubeadm_argocd_root.project | default('default') }}
   syncPolicy:

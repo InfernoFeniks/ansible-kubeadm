@@ -1,14 +1,14 @@
-- name: CNI | Check FLUNNEL
+- name: CNI | Check FLANNEL
   become: true
   ansible.builtin.stat:
-    path: /var/kuber_cni_flunnel_inited.txt
-  register: stat_flunnel
+    path: /var/kuber_cni_flannel_inited.txt
+  register: stat_flannel
 
-- name: Create Pod Network Flunnel.
-  ansible.builtin.include_tasks: 11_cni-flunnel.yml
+- name: Create Pod Network Flannel.
+  ansible.builtin.include_tasks: 11_cni-flannel.yml
   when:
-    - kubeadm_cni.flunnel | default(false)
-    - not stat_flunnel.stat.exists
+    - kubeadm_cni.flannel | default(false)
+    - not stat_flannel.stat.exists
 
 - name: CNI | Check CALICO
   become: true
@@ -19,5 +19,5 @@
 - name: Create Pod Network Calico.
   ansible.builtin.include_tasks: 12_cni-calico.yml
   when:
-    - kubeadm_cni.calico | default(false)
+    - ( kubeadm_cni.calico | default(false) ) or ( kubeadm_cni.canal_calico | default(false) )
     - not stat_calico.stat.exists

@@ -1,34 +1,54 @@
-- name: Get certificate-key from master
-  ansible.builtin.command:
-    argv:
-      - kubeadm
-      - init
-      - phase
-      - upload-certs
-      - --upload-certs
+- name: Get upload-certs
   become: true
-  become_user: root
-  register: kubeadm_init_certkey
-  changed_when:
-    - "'Using certificate key' in kubeadm_init_certkey.stdout"
-  when: ansible_hostname in groups['kube_control_plane'][0]
+  ansible.builtin.stat:
+    path: /tmp/kubernetes_join_masters_command.txt
+  register: stat_result
+- name: INIT CLUSTER
+  when: not stat_result.stat.exists
+  block:
+    - name: Get certificate-key from master
+      ansible.builtin.command:
+        argv:
+          - kubeadm
+          - init
+          - phase
+          - upload-certs
+          - --upload-certs
+      become: true
+      become_user: root
+      register: kubeadm_init_certkey
+      changed_when:
+        - "'Using certificate key' in kubeadm_init_certkey.stdout"
+      when: ansible_hostname in groups['kube_control_plane'][0]
+    - name: Get the token for joining the nodes with Kuberentes master.
+      ansible.builtin.command:
+        argv:
+          - kubeadm
+          - token
+          - create
+          - --print-join-command
+      register: kubernetes_join_masters
+      changed_when: kubernetes_join_masters.rc != 0
+      when: ansible_hostname in groups['kube_control_plane'][0]
+    - name: Copy join command for masters to file.
+      ansible.builtin.copy:
+        content: "{{ kubernetes_join_masters.stdout_lines[0] }}--control-plane --certificate-key {{ kubeadm_init_certkey.stdout_lines[-1] }}"
+        dest: /tmp/kubernetes_join_masters_command.txt
+        mode: "0777"
+      become: true
+      when: ansible_hostname in groups['kube_control_plane'][0]
 
-- name: Get the token for joining the nodes with Kuberentes master.
-  ansible.builtin.command:
-    argv:
-      - kubeadm
-      - token
-      - create
-      - --print-join-command
-  register: kubernetes_join_masters
-  changed_when: kubernetes_join_masters.rc != 0
+- name: Get certificate-key from file
+  ansible.builtin.slurp:
+    src: /tmp/kubernetes_join_masters_command.txt
+  register: kubeadm_init_certkey_from_file
   when: ansible_hostname in groups['kube_control_plane'][0]
 
 - name: Copy join command for masters to local file.
   ansible.builtin.copy:
-    content: "{{ kubernetes_join_masters.stdout_lines[0] }}--control-plane --certificate-key {{ kubeadm_init_certkey.stdout_lines[-1] }}"
+    content: "{{ kubeadm_init_certkey_from_file['content'] | b64decode }}"
     dest: /tmp/kubernetes_join_masters_command
-    mode: "0777"
+    mode: "0644"
   become: true
   delegate_to: localhost
   when: ansible_hostname in groups['kube_control_plane'][0]

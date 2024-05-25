@@ -1,3 +1,10 @@
+# kubectl create namespace argocd
+# kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# kubectl apply -f /opt/argocd-ingress.yaml
+# kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d
+
+# https://github.com/argoproj/argo-cd/releases/tag/v2.11.1
+
 - name: ARGOCD | Check argocd installation
   become: true
   ansible.builtin.stat:
@@ -15,14 +22,36 @@
         src: argocd-ingress.j2
         dest: /opt/argocd-ingress.yaml
         mode: "0644"
+    - name: ARGOCD | Generate namespace manifest argocd
+      become: true
+      ansible.builtin.template:
+        src: argocd-namespace.j2
+        dest: /opt/argocd-namespace.yaml
+        mode: "0644"
+    - name: ARGOCD | Create namespase
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/argocd-namespace.yaml
+      register: argo_namespace
+      changed_when:
+        - "'created' in argo_namespace.stdout"
+      ignore_errors: true
     - name: ARGOCD | Install Argocd
       ansible.builtin.command: "{{ item }}"
       with_items:
-        - kubectl create namespace argocd
-        - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+        - kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/{{ kubeadm_argocd_vesion }}/manifests/install.yaml
       register: argo_complete
       changed_when:
         - "'created' in argo_complete.stdout"
+    - name: ARGOCD | Wait Install Argocd
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl wait --for condition=ready --all pod --namespace=argocd --timeout=300s
+      register: argo_complete_ready
+      changed_when:
+        - "'condition met' in argo_complete_ready.stdout"
+      async: 420
+      poll: 20
     - name: ARGOCD | Creating ingress rules for argocd
       ansible.builtin.command: "{{ item }}"
       with_items:
@@ -45,7 +74,7 @@
       changed_when:
         - argocd_pass.stdout | length>2
         - argocd_pass.rc == 0
-      retries: 15
+      retries: 25
       delay: 10
       until: argocd_pass.rc == 0
     - name: Remove old file with argocd pass
@@ -70,7 +99,3 @@
         mode: "0644"
       become: true
 
-# kubectl create namespace argocd
-# kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
-# kubectl apply -f /opt/argocd-ingress.yaml
-# kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath="{.data.password}" | base64 -d

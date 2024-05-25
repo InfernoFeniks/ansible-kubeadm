@@ -1,0 +1,73 @@
+# https://github.com/flannel-io/flannel
+
+- name: FLANNEL | Install Flannel
+  block:
+    - name: FLANNEL | Generate Flannel custom resource
+      become: true
+      ansible.builtin.template:
+        src: flannel_resources.j2
+        dest: /opt/flannel_resources.yaml
+        mode: "0644"
+
+    - name: FLANNEL | Install Flannel by creating the necessary custom resource
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl apply -f /opt/flannel_resources.yaml
+      register: cni_flannel_complete
+      changed_when: "'created' in cni_flannel_complete.stdout"
+      when: not kubeadm_tools.helm
+
+    - name: FLANNEL | Prepare to install Flannel by HELM. Namespace
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl create ns kube-flannel
+      register: flannel_nm
+      changed_when: "'created' in flannel_nm.stdout"
+      when: kubeadm_tools.helm
+
+    - name: FLANNEL | Prepare to install Flannel by HELM. Namespace label security
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl label --overwrite ns kube-flannel pod-security.kubernetes.io/enforce=privileged
+      register: flannel_nm_label
+      changed_when: "'labeled' in flannel_nm_label.stdout"
+      when: kubeadm_tools.helm
+
+    - name: FLANNEL | Add Flannel repo HELM
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - helm repo add flannel https://flannel-io.github.io/flannel/
+      register: helm_flannel_repo
+      changed_when: "'has been added' in helm_flannel_repo.stdout"
+      when: kubeadm_tools.helm
+
+    - name: FLANNEL | Install Flannel by HELM
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - helm upgrade --install flannel --set podCidr={{ kubeadm_kube_settings.pod_cidr }} --namespace kube-flannel flannel/flannel
+      register: helm_flannel_install
+      changed_when: "'STATUS: deployed' in helm_flannel_install.stdout"
+      when: kubeadm_tools.helm
+
+    - name: Pause for 10 seconds
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: FLANNEL | Wait Flannel by creating the necessary custom resource
+      ansible.builtin.command: "{{ item }}"
+      with_items:
+        - kubectl wait --for condition=ready --all pod --namespace=kube-flannel --timeout=300s
+      register: cni_flannel_wait
+      changed_when:
+        - "'condition met' in cni_flannel_wait.stdout"
+      async: 300
+      poll: 10
+
+    - name: Make file that task already completed
+      ansible.builtin.file:
+        path: /var/kuber_cni_flannel_inited.txt
+        state: touch
+        owner: root
+        group: root
+        mode: '0644'
+      become: true
